@@ -2,7 +2,7 @@
 
 A classic board game of Snakes & Ladders reimagined in 3D with a unique twist for designers and creatives. This interactive game is built entirely with HTML, CSS, and Three.js.
 
-**[Play the live game here!](https://your-github-username.github.io/your-repository-name/)** *(Remember to replace the link above with your actual GitHub Pages URL once it's deployed!)*
+*[Play the live game here!] https://suryaheatz.github.io/snakes-and-ladders-game/*
 
 ---
 
