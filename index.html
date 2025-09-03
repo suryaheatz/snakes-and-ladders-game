@@ -1,0 +1,1842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S&L - stable version 2.0</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0; /* Added a neutral background */
+        }
+        canvas { display: block; }
+        .info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: #333;
+            font-size: 16px;
+            pointer-events: none; /* Make sure it doesn't interfere with mouse controls */
+        }
+        #layer-panel {
+            position: absolute;
+            top: 70px; /* Adjusted to not overlap with toggle */
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            width: 250px;
+            display: none; /* Hidden by default */
+            z-index: 12;
+        }
+        .layer-item {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .layer-item:last-child {
+            margin-bottom: 0;
+        }
+        .layer-item label {
+            margin-left: 8px;
+            color: #333;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .layer-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+        .sub-layer {
+            padding-left: 20px;
+        }
+        .pos-inputs {
+            display: flex;
+            gap: 4px;
+        }
+        .pos-inputs input {
+            width: 40px;
+            font-size: 12px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #panel-toggle-container {
+            position: absolute;
+            top: 20px;
+            left: 20px; /* Moved to left */
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: rgba(255, 255, 255, 0.85);
+            padding: 8px 12px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 11;
+        }
+        #panel-toggle-container label {
+             color: #333;
+        }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #3066BE; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        #apply-changes {
+            width: 100%;
+            padding: 8px;
+            margin-top: 15px;
+            border: none;
+            background-color: #28a745;
+            color: white;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #apply-changes:hover {
+            background-color: #218838;
+        }
+        /* Game Controls Panel */
+        #game-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            z-index: 10;
+        }
+        #roll-dice-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        #roll-dice-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        #game-info {
+            font-size: 16px;
+            color: #333;
+            text-align: center;
+        }
+         /* Right Side Panel */
+        #game-info-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 320px;
+            height: 100%;
+            background-color: #f8f9fa;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            transform: translateX(100%); /* Start closed */
+            transition: transform 0.3s ease-in-out;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+            overflow-y: auto;
+        }
+        #game-info-panel.open {
+            transform: translateX(0);
+        }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .panel-header h3 {
+            margin: 0;
+        }
+        #close-info-panel {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        #close-info-panel:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .accordion-header {
+            cursor: pointer;
+            padding: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion-content {
+            padding-left: 10px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            max-height: 500px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out;
+        }
+        .accordion-content.collapsed {
+            max-height: 0;
+        }
+        .player-info {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+        #question-card {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            color: white;
+            transition: background-color 0.3s;
+        }
+        #designer-name {
+            font-size: 12px;
+            color: #eeeeee;
+            margin-bottom: 5px;
+            text-align: left;
+        }
+        #question-text {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .quiz-buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+        .quiz-buttons button {
+            width: 48%;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            background-color: rgba(255, 255, 255, 0.8);
+            color: #333;
+            border: 1px solid rgba(255, 255, 255, 0.9);
+        }
+        .hidden {
+            display: none;
+        }
+        #open-info-panel-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 12px;
+            background-color: rgba(255, 255, 255, 0.85);
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+            z-index: 11;
+        }
+        /* Scorecard Styles */
+        #scorecard {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+        .score-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .score-table th, .score-table td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        .score-table th {
+            background-color: #e9ecef;
+            font-weight: bold;
+        }
+        .score-table td:first-child {
+            text-align: left;
+            font-weight: normal;
+        }
+        .score-table .total-points td {
+            font-weight: bold;
+            font-size: 16px;
+            border-top: 2px solid #333;
+        }
+        /* Creator Credit */
+        #creator-credit {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 12px;
+            color: #555;
+            line-height: 1.4;
+            z-index: 10;
+        }
+        #creator-credit a {
+            color: #3066BE;
+            text-decoration: none;
+        }
+        #creator-credit a:hover {
+            text-decoration: underline;
+        }
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 500px;
+            text-align: left;
+        }
+        #start-modal-content h1 {
+            font-size: 28px;
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        #start-modal-content h2 {
+            font-size: 20px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #555;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+        #start-modal-content ul {
+            list-style-type: disc;
+            padding-left: 20px;
+            margin: 0;
+            color: #666;
+            line-height: 1.6;
+        }
+        #start-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            margin-top: 30px;
+            border: none;
+            background-color: #3066BE;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #start-btn:hover {
+            background-color: #254e94;
+        }
+        .game-ui {
+            visibility: hidden;
+        }
+    </style>
+</head>
+<body>
+    <!-- Start Modal -->
+    <div id="start-modal-overlay" class="modal-overlay">
+        <div id="start-modal-content" class="modal-content">
+            <h1>Snakes & Ladders - Designer Version</h1>
+            <h2>How to Play</h2>
+            <ul>
+                <li>Click "Roll Dice" to start your turn.</li>
+                <li>Answer a design trivia question correctly to get a better chance of a good roll.</li>
+                <li>Ladders move you up the board, but snakes will slide you down.</li>
+                <li>The first player to land exactly on square 100 wins!</li>
+            </ul>
+            <button id="start-btn">Start Game</button>
+        </div>
+    </div>
+    
+
+
+    <div class="info">Snakes & Ladders - Designer Version</div>
+
+    <div id="panel-toggle-container" class="game-ui">
+        <label for="panel-toggle">Show Layers</label>
+        <label class="switch">
+            <input type="checkbox" id="panel-toggle">
+            <span class="slider round"></span>
+        </label>
+    </div>
+
+    <div id="layer-panel">
+        <h3>Layers</h3>
+        <div class="layer-item">
+            <div>
+                <input type="checkbox" id="board-toggle" checked>
+                <label for="board-toggle">Board</label>
+            </div>
+            <div class="pos-inputs" id="board-pos">
+                <input type="number" step="0.1" id="board-pos-x" title="X Position">
+                <input type="number" step="0.1" id="board-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="board-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item">
+             <div>
+                <input type="checkbox" id="grid-toggle" checked>
+                <label for="grid-toggle">Grid</label>
+            </div>
+            <div class="pos-inputs" id="grid-pos">
+                <input type="number" step="0.1" id="grid-pos-x" title="X Position">
+                <input type="number" step="0.1" id="grid-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="grid-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item">
+            <div>
+                <input type="checkbox" id="numbers-toggle" checked>
+                <label for="numbers-toggle">Numbers</label>
+            </div>
+            <div class="pos-inputs" id="numbers-pos">
+                <input type="number" step="0.1" id="numbers-pos-x" title="X Position">
+                <input type="number" step="0.1" id="numbers-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="numbers-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item">
+            <div>
+                <input type="checkbox" id="game-pieces-toggle" checked>
+                <label for="game-pieces-toggle">Game Pieces</label>
+            </div>
+             <div class="pos-inputs" id="game-pieces-pos">
+                <input type="number" step="0.1" id="game-pieces-pos-x" title="X Position">
+                <input type="number" step="0.1" id="game-pieces-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="game-pieces-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item sub-layer" id="ladders-layer">
+            <input type="checkbox" id="ladders-toggle" checked>
+            <label for="ladders-toggle">Ladders</label>
+        </div>
+        <div class="layer-item sub-layer" id="snakes-layer">
+            <input type="checkbox" id="snakes-toggle" checked>
+            <label for="snakes-toggle">Snakes</label>
+        </div>
+        <div class="layer-item">
+            <input type="checkbox" id="scenery-toggle" checked>
+            <label for="scenery-toggle">Scenery</label>
+        </div>
+         <div class="layer-item sub-layer">
+            <div>
+                <input type="checkbox" id="trees-toggle" checked>
+                <label for="trees-toggle">Trees</label>
+            </div>
+             <div class="pos-inputs" id="trees-pos">
+                <input type="number" step="0.1" id="trees-pos-x" title="X Position">
+                <input type="number" step="0.1" id="trees-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="trees-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item sub-layer">
+            <div>
+                <input type="checkbox" id="rainbows-toggle" checked>
+                <label for="rainbows-toggle">Rainbows</label>
+            </div>
+            <div class="pos-inputs" id="rainbows-pos">
+                <input type="number" step="0.1" id="rainbows-pos-x" title="X Position">
+                <input type="number" step="0.1" id="rainbows-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="rainbows-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item sub-layer">
+            <div>
+                <input type="checkbox" id="pawns-toggle" checked>
+                <label for="pawns-toggle">Pawns</label>
+            </div>
+            <div class="pos-inputs" id="pawns-pos">
+                <input type="number" step="0.1" id="pawns-pos-x" title="X Position">
+                <input type="number" step="0.1" id="pawns-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="pawns-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item sub-layer">
+            <div>
+                <input type="checkbox" id="dice-toggle" checked>
+                <label for="dice-toggle">Dice</label>
+            </div>
+            <div class="pos-inputs" id="dice-pos">
+                <input type="number" step="0.1" id="dice-pos-x" title="X Position">
+                <input type="number" step="0.1" id="dice-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="dice-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item sub-layer">
+            <div>
+                <input type="checkbox" id="clouds-toggle" checked>
+                <label for="clouds-toggle">Clouds</label>
+            </div>
+            <div class="pos-inputs" id="clouds-pos">
+                <input type="number" step="0.1" id="clouds-pos-x" title="X Position">
+                <input type="number" step="0.1" id="clouds-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="clouds-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item sub-layer">
+            <div>
+                <input type="checkbox" id="ikea-store-toggle" checked>
+                <label for="ikea-store-toggle">IKEA Store</label>
+            </div>
+            <div class="pos-inputs" id="ikea-store-pos">
+                <input type="number" step="0.1" id="ikea-store-pos-x" title="X Position">
+                <input type="number" step="0.1" id="ikea-store-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="ikea-store-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item sub-layer">
+            <div>
+                <input type="checkbox" id="kiosk-toggle" checked>
+                <label for="kiosk-toggle">Kiosk</label>
+            </div>
+            <div class="pos-inputs" id="kiosk-pos">
+                <input type="number" step="0.1" id="kiosk-pos-x" title="X Position">
+                <input type="number" step="0.1" id="kiosk-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="kiosk-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item sub-layer">
+            <div>
+                <input type="checkbox" id="stool-toggle" checked>
+                <label for="stool-toggle">Stool</label>
+            </div>
+            <div class="pos-inputs" id="stool-pos">
+                <input type="number" step="0.1" id="stool-pos-x" title="X Position">
+                <input type="number" step="0.1" id="stool-pos-y" title="Y Position">
+                <input type="number" step="0.1" id="stool-pos-z" title="Z Position">
+            </div>
+        </div>
+        <div class="layer-item">
+            <input type="checkbox" id="axes-toggle">
+            <label for="axes-toggle">Axes</label>
+        </div>
+        <button id="apply-changes">Apply Changes</button>
+    </div>
+
+    <!-- Game Controls -->
+    <div id="game-controls" class="game-ui">
+        <div id="game-info">Purple Player's Turn</div>
+        <button id="roll-dice-btn">Roll Dice</button>
+    </div>
+    
+    <!-- Game Info Panel -->
+    <div id="game-info-panel" class="game-ui"> <!-- Removed 'open' class -->
+        <div class="panel-header">
+            <h3>Game Information</h3>
+            <button id="close-info-panel">&times;</button>
+        </div>
+        <div class="accordion-header" id="player-info-accordion">
+            <strong>Current Player Positions</strong>
+            <span>&#9660;</span>
+        </div>
+        <div class="accordion-content" id="player-info-content">
+            <div class="player-info">
+                <span>Player Purple</span>
+                <span id="player-purple-pos">Position 1</span>
+            </div>
+            <div class="player-info">
+                <span>Player Blue</span>
+                <span id="player-blue-pos">Position 1</span>
+            </div>
+        </div>
+        <h3>Question</h3>
+        <div id="question-card" class="hidden">
+            <div id="designer-name">DESIGNER'S NAME</div>
+            <p id="question-text">Do you think this game board design effectively balances visual appeal with gameplay clarity?</p>
+            <div class="quiz-buttons">
+                <button id="agree-btn">Agree</button>
+                <button id="disagree-btn">Disagree</button>
+            </div>
+        </div>
+        <!-- Scorecard Section -->
+        <div id="scorecard">
+            <h3>Scorecard</h3>
+            <table class="score-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Purple</th>
+                        <th>Blue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Correct Answers</td>
+                        <td id="purple-correct-answers">0</td>
+                        <td id="blue-correct-answers">0</td>
+                    </tr>
+                    <tr>
+                        <td>Ladders</td>
+                        <td id="purple-ladders">0</td>
+                        <td id="blue-ladders">0</td>
+                    </tr>
+                    <tr>
+                        <td>Snakes</td>
+                        <td id="purple-snakes">0</td>
+                        <td id="blue-snakes">0</td>
+                    </tr>
+                    <tr class="total-points">
+                        <td>Total Points</td>
+                        <td id="purple-total-points">0</td>
+                        <td id="blue-total-points">0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <button id="open-info-panel-btn" class="hidden game-ui">Game Info</button>
+
+    <!-- Creator Credit -->
+    <div id="creator-credit">
+        Concept & creator<br>
+        <a href="https://www.linkedin.com/in/suryakonijeti/" target="_blank">Surya Konijeti</a>
+    </div>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+    <script>
+        // === BASIC SCENE SETUP ===
+        let scene, camera, renderer, controls;
+        let boardGroup, cells = [];
+        const clock = new THREE.Clock();
+        let mainFont;
+        let tonguesToAnimate = [];
+        
+        // === AXES GIZMO SETUP ===
+        let scene2, camera2, axesGroup;
+
+        // === LAYER GROUPS ===
+        let gamePiecesGroup, laddersGroup, snakesGroup, numbersGroup, treesGroup, rainbowsGroup, gridGroup, sceneryGroup, pawnsGroup, diceGroup, cloudsGroup, ikeaStoreGroup, kioskGroup, stoolGroup;
+        
+        // === GAME STATE MANAGEMENT (v2.0: Full Game Logic) ===
+        let playerPositions = [1, 1]; // Players start at cell 1
+        let currentPlayerIndex = 0; // 0=Purple, 1=Blue
+        let gamePhase = "waiting_for_roll"; // Can be 'waiting_for_roll', 'pawn_moving', or 'game_over'
+        const playerColors = [
+            { name: 'Purple', hex: '#800080' },
+            { name: 'Blue', hex: '#0000ff' }
+        ];
+        const specialMoves = {
+            4: 25, 13: 46, 33: 49, 42: 63, 50: 69, 62: 81, 74: 92, // Ladders
+            27: 5, 40: 3, 43: 18, 54: 31, 66: 45, 76: 58, 89: 53, 99: 41 // Snakes
+        };
+        const dieFaceRotations = {
+            1: new THREE.Euler(0, 0, Math.PI / 2),
+            2: new THREE.Euler(0, 0, -Math.PI / 2),
+            3: new THREE.Euler(0, 0, 0),
+            4: new THREE.Euler(Math.PI, 0, 0),
+            5: new THREE.Euler(-Math.PI / 2, 0, 0),
+            6: new THREE.Euler(Math.PI / 2, 0, 0)
+        };
+        
+        // SCORE TRACKING
+        let playerScores = [
+            { correct: 0, attempted: 0, ladders: 0, snakes: 0 }, // Player Purple
+            { correct: 0, attempted: 0, ladders: 0, snakes: 0 }  // Player Blue
+        ];
+        let currentQuestion = {};
+
+        // === QUIZ CONTENT ===
+        const quizQuestions = [
+            // Dieter Rams
+            { statement: "Good design is innovative and always seeks to be fashionable.", answer: false, source: "Dieter Rams" },
+            { statement: "Dieter Rams' 10th principle is: 'Good design is as little design as possible.'", answer: true, source: "Dieter Rams" },
+            { statement: "According to Dieter Rams, good design makes a product understandable.", answer: true, source: "Dieter Rams" },
+            { statement: "Dieter Rams believed that design should be decorative and ornamental.", answer: false, source: "Dieter Rams" },
+            { statement: "The principle 'Good design is honest' implies it does not make a product more innovative than it really is.", answer: true, source: "Dieter Rams" },
+            { statement: "Dieter Rams designed products primarily for the company Apple.", answer: false, source: "Dieter Rams (Braun)" },
+            { statement: "One of Rams' principles is that good design is long-lasting.", answer: true, source: "Dieter Rams" },
+            { statement: "Dieter Rams stated that 'Good design is environmentally friendly.'", answer: true, source: "Dieter Rams" },
+            { statement: "Rams' principle 'Good design is thorough down to the last detail' means nothing must be arbitrary.", answer: true, source: "Dieter Rams" },
+            { statement: "Dieter Rams believed that good design must be expensive.", answer: false, source: "Dieter Rams" },
+
+            // Jakob Nielsen
+            { statement: "'Recognition rather than recall' means users should not have to remember information from one part of the interface to another.", answer: true, source: "Jakob Nielsen" },
+            { statement: "To ensure usability, it's best to show users all available information at once to maximize their options.", answer: false, source: "Jakob Nielsen" },
+            { statement: "Nielsen's heuristic 'Visibility of system status' means the user should always be informed about what is going on.", answer: true, source: "Jakob Nielsen" },
+            { statement: "Error messages should be technical and use precise jargon.", answer: false, source: "Jakob Nielsen" },
+            { statement: "Jakob Nielsen is known as the 'king of usability'.", answer: true, source: "Jakob Nielsen" },
+            { statement: "Aesthetic and minimalist design is one of Nielsen's 10 usability heuristics.", answer: true, source: "Jakob Nielsen" },
+            { statement: "Nielsen suggests that consistency in a user interface is not important if the design is beautiful.", answer: false, source: "Jakob Nielsen" },
+            { statement: "The concept of 'user control and freedom' suggests users need a clearly marked 'emergency exit'.", answer: true, source: "Jakob Nielsen" },
+            { statement: "Nielsen's heuristics are complex rules that require extensive training to apply.", answer: false, source: "Jakob Nielsen" },
+            { statement: "Help and documentation should be provided, even if the system is intended to be used without it.", answer: true, source: "Jakob Nielsen" },
+
+            // Don Norman
+            { statement: "A 'signifier' is a component of an object that signals the correct way to use it, like a 'Push' label on a door.", answer: true, source: "Don Norman" },
+            { statement: "Don Norman argues that if a user makes a mistake, it is always the user's fault.", answer: false, source: "Don Norman" },
+            { statement: "The book 'The Design of Everyday Things' was written by Don Norman.", answer: true, source: "Don Norman" },
+            { statement: "A 'Norman Door' is a door that is confusing to use.", answer: true, source: "Don Norman" },
+            { statement: "The concept of 'affordances' refers to the aesthetic properties of an object.", answer: false, source: "Don Norman" },
+            { statement: "Don Norman co-founded the Nielsen Norman Group.", answer: true, source: "Don Norman" },
+            { statement: "Good feedback in design is immediate and informative.", answer: true, source: "Don Norman" },
+            { statement: "Don Norman advocates for 'human-centered design'.", answer: true, source: "Don Norman" },
+            { statement: "A good 'conceptual model' allows the user to predict the effects of their actions.", answer: true, source: "Don Norman" },
+            { statement: "Don Norman believes that attractive things work better.", answer: true, source: "Don Norman" },
+
+            // Massimo Vignelli
+            { statement: "Vignelli believed a designer should be able to design anything, from a spoon to a city.", answer: true, source: "Massimo Vignelli" },
+            { statement: "Massimo Vignelli famously said, 'More is more,' advocating for decorative complexity in his work.", answer: false, source: "Massimo Vignelli" },
+            { statement: "The Unigrid System, designed by Vignelli for the National Park Service, uses a single font and a modular layout for all park brochures.", answer: true, source: "Massimo Vignelli" },
+            { statement: "Massimo Vignelli designed the iconic New York City subway map in 1972.", answer: true, source: "Massimo Vignelli" },
+            { statement: "Vignelli was a strong proponent of using a wide variety of typefaces in a single design.", answer: false, source: "Massimo Vignelli" },
+            { statement: "The American Airlines logo with the eagle was designed by Massimo Vignelli.", answer: true, source: "Massimo Vignelli" },
+            { statement: "Vignelli's work is often described as minimalist and modernist.", answer: true, source: "Massimo Vignelli" },
+            { statement: "The Vignelli Canon is a book that outlines his design principles.", answer: true, source: "Massimo Vignelli" },
+            { statement: "Vignelli believed that design should be 'visually powerful, intellectually elegant, and above all, timeless.'", answer: true, source: "Massimo Vignelli" },
+            { statement: "Massimo Vignelli designed the branding for Benetton.", answer: false, source: "Massimo Vignelli" },
+
+            // Paul Rand
+            { statement: "Paul Rand designed the iconic logos for IBM, UPS, and ABC.", answer: true, source: "Paul Rand" },
+            { statement: "Rand believed that a logo's primary goal is to be liked by the client, even if it compromises design principles.", answer: false, source: "Paul Rand" },
+            { statement: "The 'Rebus' poster for IBM, featuring an eye, a bee, and an M, was designed by Paul Rand.", answer: true, source: "Paul Rand" },
+            { statement: "Paul Rand was a proponent of the idea that a logo must literally describe what the company does.", answer: false, source: "Paul Rand" },
+            { statement: "The NeXT Computers logo was designed by Paul Rand for Steve Jobs.", answer: true, source: "Paul Rand" },
+            { statement: "Paul Rand taught design at Yale University.", answer: true, source: "Paul Rand" },
+            { statement: "Rand believed that the effectiveness of a logo depends heavily on its color.", answer: false, source: "Paul Rand" },
+            { statement: "Paul Rand wrote the book 'Thoughts on Design'.", answer: true, source: "Paul Rand" },
+            { statement: "The Enron logo was one of Paul Rand's last major projects.", answer: true, source: "Paul Rand" },
+            { statement: "Paul Rand's work is associated with the Swiss Style of graphic design.", answer: true, source: "Paul Rand" },
+
+            // General Design & History
+            { statement: "The Bauhaus school was founded by Walter Gropius.", answer: true, source: "Design History" },
+            { statement: "Art Nouveau is characterized by its use of clean, straight lines and geometric shapes.", answer: false, source: "Design History" },
+            { statement: "The typeface Helvetica was designed in Switzerland.", answer: true, source: "Typography" },
+            { statement: "CMYK color model is used for digital displays like monitors and screens.", answer: false, source: "Color Theory" },
+            { statement: "Kerning is the process of adjusting the spacing between all characters in a block of text.", answer: false, source: "Typography (Tracking)" },
+            { statement: "The Golden Ratio is approximately 1.618.", answer: true, source: "Design Principles" },
+            { statement: "Gestalt psychology is irrelevant to modern user interface design.", answer: false, source: "Design Principles" },
+            { statement: "The first graphical user interface (GUI) was developed by Apple for the Macintosh.", answer: false, source: "Design History (Xerox PARC)" },
+            { statement: "Milton Glaser designed the famous 'I ❤ NY' logo.", answer: true, source: "Graphic Design" },
+            { statement: "A 'serif' is a small line attached to the end of a stroke in a letter or symbol.", answer: true, source: "Typography" },
+            { statement: "The Arts and Crafts movement was a reaction against the Industrial Revolution.", answer: true, source: "Design History" },
+            { statement: "Saul Bass was a filmmaker and did not work in graphic design.", answer: false, source: "Graphic Design" },
+            { statement: "Fitt's Law relates to the time it takes to move to a target area.", answer: true, source: "UX Principles" },
+            { statement: "Responsive design means a website adapts to the screen size of the device.", answer: true, source: "Web Design" },
+            { statement: "The 'grid system' was popularized by designers of the International Typographic Style.", answer: true, source: "Design Principles" },
+            { statement: "RGB stands for Red, Green, and Blue.", answer: true, source: "Color Theory" },
+            { statement: "Leading (or line-height) refers to the space between words.", answer: false, source: "Typography" },
+            { statement: "The De Stijl movement originated in France.", answer: false, source: "Design History (Netherlands)" },
+            { statement: "Hick's Law states that the more choices a user has, the faster they will make a decision.", answer: false, source: "UX Principles" },
+            { statement: "Susan Kare designed the original icons for the Apple Macintosh.", answer: true, source: "Icon Design" },
+            { statement: "The Z-pattern is a common eye-scanning pattern for web pages.", answer: true, source: "UX Principles" },
+            { statement: "A wireframe is a high-fidelity representation of a final product.", answer: false, source: "UX Design" },
+            { statement: "The primary colors in the subtractive color model are red, yellow, and blue.", answer: true, source: "Color Theory" },
+            { statement: "Comic Sans is widely regarded as a professional and versatile typeface.", answer: false, source: "Typography" },
+            { statement: "The designer of the London Underground map was Harry Beck.", answer: true, source: "Information Design" },
+            { statement: "White space in design is also known as 'negative space'.", answer: true, source: "Design Principles" },
+            { statement: "The 'rule of thirds' is a principle of composition.", answer: true, source: "Design Principles" },
+            { statement: "An 'orphan' in typography is a single word left at the top of a new column.", answer: false, source: "Typography (Widow)" },
+            { statement: "Charles and Ray Eames were known for their contributions to architecture and furniture design.", answer: true, source: "Industrial Design" },
+            { statement: "The term 'pixel' is short for 'picture element'.", answer: true, source: "Digital Design" },
+            { statement: "A 'mood board' is a tool used to establish a project's visual identity.", answer: true, source: "Design Process" },
+            { statement: "SVG stands for 'Standard Vector Graphics'.", answer: false, source: "Web Design (Scalable)" },
+            { statement: "The 'Keep Calm and Carry On' poster was designed during World War I.", answer: false, source: "Design History (WWII)" },
+            { statement: "Alan Turing is considered the father of graphic design.", answer: false, source: "Design History" },
+            { statement: "The principle of 'proximity' suggests that related items should be grouped together.", answer: true, source: "Gestalt Principles" },
+            { statement: "A 'favicon' is the large logo at the top of a website.", answer: false, source: "Web Design" },
+            { statement: "The Eames Lounge Chair was designed to look uncomfortable and rigid.", answer: false, source: "Industrial Design" },
+            { statement: "The first issue of 'Emigre' magazine was published in 2005.", answer: false, source: "Design History (1984)" },
+            { statement: "A 'user persona' is a fictional character created to represent a user type.", answer: true, source: "UX Design" },
+            { statement: "The Pantone Matching System (PMS) is used for standardizing colors.", answer: true, source: "Color Systems" },
+            { statement: "The 'uncanny valley' describes a negative reaction to robots that look almost human.", answer: true, source: "Design Concepts" },
+            { statement: "The designer of the Volkswagen Beetle was Ferdinand Porsche.", answer: true, source: "Industrial Design" },
+            { statement: "The 'five-second test' is used to measure a user's first impressions of a design.", answer: true, source: "UX Research" },
+            { statement: "Lorem Ipsum text has its roots in a classical Latin text by Cicero.", answer: true, source: "Typography" },
+            { statement: "The 'hamburger menu' icon consists of four horizontal lines.", answer: false, source: "UI Design" },
+            { statement: "The 'Bauhaus' literally translates to 'building house'.", answer: true, source: "Design History" },
+            { statement: "The designer Paula Scher is known for her work with the design firm Pentagram.", answer: true, source: "Graphic Design" },
+            { statement: "A 'call to action' (CTA) should be subtle and hard to find.", answer: false, source: "UI/UX Design" },
+            { statement: "The 'kiss cut' is a type of paper folding technique.", answer: false, source: "Print Design (Die Cut)" },
+            { statement: "The Memphis Group was a German design movement from the 1920s.", answer: false, source: "Design History (Italian, 1980s)" },
+            { statement: "The font 'Garamond' is named after its designer, Claude Garamond.", answer: true, source: "Typography" },
+            { statement: "A 'sitemap' is a visual representation of a website's architecture.", answer: true, source: "UX Design" },
+            { statement: "The concept of 'affordance' was coined by psychologist James J. Gibson.", answer: true, source: "Design Theory" },
+            { statement: "The 'dribbble' website is primarily for writers to share their work.", answer: false, source: "Design Community" },
+            { statement: "Contrast is a key principle for creating visual hierarchy.", answer: true, source: "Design Principles" },
+            { statement: "The 'above the fold' concept comes from newspaper design.", answer: true, source: "Design Terminology" },
+            { statement: "The 'Helvetica' movie is a documentary about a famous painter.", answer: false, source: "Design Culture" },
+            { statement: "A 'style guide' helps maintain design consistency across a project.", answer: true, source: "Design Process" },
+            { statement: "The 'Constructivist' art movement influenced modern graphic design.", answer: true, source: "Design History" },
+            { statement: "The 'x-height' in typography refers to the height of the letter 'x'.", answer: true, source: "Typography" },
+            { statement: "Card sorting is a method used to help design a site's navigation.", answer: true, source: "UX Research" },
+            { statement: "The 'Coca-Cola' logo is an example of a logomark.", answer: false, source: "Branding (Logotype)" },
+            { statement: "The 'less is more' philosophy is associated with architect Ludwig Mies van der Rohe.", answer: true, source: "Design Philosophy" },
+            { statement: "The 'AIGA' is the professional association for design in the United States.", answer: true, source: "Design Organizations" },
+            { statement: "The 'Behance' platform is owned by Adobe.", answer: true, source: "Design Community" },
+            { statement: "The 'Swiss Style' is known for its chaotic and asymmetrical layouts.", answer: false, source: "Design History" },
+            { statement: "The 'kerning' of a font is fixed and cannot be adjusted.", answer: false, source: "Typography" },
+            { statement: "The 'Gutenberg Bible' was the first major book printed using movable type.", answer: true, source: "Design History" },
+            { statement: "The 'Creative Commons' license allows creators to share their work freely.", answer: true, source: "Design & Law" },
+            { statement: "The 'Dunning-Kruger effect' can make novice designers overestimate their abilities.", answer: true, source: "Design Psychology" },
+            { statement: "The 'Fibonacci sequence' is often used to create visually appealing layouts.", answer: true, source: "Design Principles" },
+            { statement: "The 'ISO 216' standard defines international paper sizes like A4.", answer: true, source: "Print Design" },
+            { statement: "The 'Moiré effect' is a desirable visual pattern in digital printing.", answer: false, source: "Design Issues" },
+            { statement: "The 'Ogilvy' agency is famous for its work in architecture.", answer: false, source: "Advertising" },
+            { statement: "The 'Paradox of Choice' suggests that more options lead to greater user satisfaction.", answer: false, source: "UX Psychology" },
+            { statement: "The 'PNG' image format supports transparency.", answer: true, source: "Digital Design" },
+            { statement: "The 'Raster' image is made of pixels and becomes blurry when scaled up.", answer: true, source: "Digital Design" },
+            { statement: "The 'Vector' image is based on mathematical equations and can be scaled infinitely.", answer: true, source: "Digital Design" },
+            { statement: "The 'Skeuomorphism' design trend imitates real-world objects.", answer: true, source: "Design Trends" },
+            { statement: "The 'Turing Test' is a method for evaluating a website's usability.", answer: false, source: "Artificial Intelligence" },
+            { statement: "The 'WYSIWYG' acronym stands for 'What You See Is What You Get'.", answer: true, source: "Design Software" },
+            { statement: "The 'Zeigarnik effect' suggests that people remember completed tasks better than incomplete ones.", answer: false, source: "Psychology" },
+            { statement: "The 'agile' methodology is a linear and rigid approach to project management.", answer: false, source: "Design Process" },
+            { statement: "The 'waterfall' model is an iterative and flexible design process.", answer: false, source: "Design Process" },
+            { statement: "The 'A/B test' involves comparing two versions of a design to see which performs better.", answer: true, source: "UX Research" },
+            { statement: "The 'empathy map' is a tool to gain a deeper understanding of users.", answer: true, source: "UX Design" },
+            { statement: "The 'heuristic evaluation' is conducted with end-users to identify usability problems.", answer: false, source: "UX Method" },
+            { statement: "The 'information architecture' of a website refers to its visual design.", answer: false, source: "UX Design" },
+            { statement: "The 'Lean UX' approach emphasizes rapid cycles of building, measuring, and learning.", answer: true, source: "Design Process" },
+            { statement: "The 'Net Promoter Score' (NPS) measures customer loyalty.", answer: true, source: "UX Metrics" },
+            { statement: "The 'System Usability Scale' (SUS) is a questionnaire for measuring usability.", answer: true, source: "UX Metrics" },
+            { statement: "The 'user journey map' visualizes the user's experience with a product or service.", answer: true, source: "UX Design" },
+            { statement: "The 'visual hierarchy' helps guide the viewer's eye through a design.", answer: true, source: "Design Principles" },
+            { statement: "The 'color wheel' was invented by Sir Isaac Newton.", answer: true, source: "Color Theory" },
+            { statement: "The 'triadic' color scheme uses three colors that are evenly spaced on the color wheel.", answer: true, source: "Color Theory" },
+            { statement: "The 'analogous' color scheme uses colors that are opposite each other on the color wheel.", answer: false, source: "Color Theory" },
+            { statement: "The 'monochromatic' color scheme uses variations of a single hue.", answer: true, source: "Color Theory" },
+            { statement: "The 'complementary' color scheme consists of colors that are next to each other on the color wheel.", answer: false, source: "Color Theory" },
+            { statement: "The 'CMYK' color model is additive.", answer: false, source: "Color Theory" },
+            { statement: "The 'RGB' color model is subtractive.", answer: false, source: "Color Theory" },
+            { statement: "The 'hex code' for white is #FFFFFF.", answer: true, source: "Digital Color" },
+            { statement: "The 'hex code' for black is #111111.", answer: false, source: "Digital Color (#000000)" },
+            { statement: "The 'hue' of a color refers to its purity or intensity.", answer: false, source: "Color Theory (Saturation)" },
+            { statement: "The 'saturation' of a color refers to its lightness or darkness.", answer: false, source: "Color Theory (Value)" },
+            { statement: "The 'value' of a color refers to its position on the color wheel.", answer: false, source: "Color Theory (Hue)" },
+            { statement: "The 'tint' of a color is created by adding white.", answer: true, source: "Color Theory" },
+            { statement: "The 'shade' of a color is created by adding black.", answer: true, source: "Color Theory" },
+            { statement: "The 'tone' of a color is created by adding gray.", answer: true, source: "Color Theory" },
+            { statement: "The 'warm' colors are typically reds, oranges, and yellows.", answer: true, source: "Color Theory" },
+            { statement: "The 'cool' colors are typically blues, greens, and purples.", answer: true, source: "Color Theory" },
+            { statement: "The 'Pantone' company is known for its proprietary color space.", answer: true, source: "Color Systems" },
+            { statement: "The 'Gestalt' principle of 'closure' explains how we perceive incomplete shapes as complete.", answer: true, source: "Design Psychology" },
+            { statement: "The 'Gestalt' principle of 'similarity' suggests that we group dissimilar items together.", answer: false, source: "Design Psychology" },
+            { statement: "The 'Gestalt' principle of 'figure-ground' relates to our ability to distinguish an object from its background.", answer: true, source: "Design Psychology" }
+        ];
+
+        // === ANIMATION & TEXTURE GLOBALS ===
+        const textureLoader = new THREE.TextureLoader();
+        const woodTexture = textureLoader.load('https://placehold.co/512x512/663300/331a00.png?text=Wood');
+        woodTexture.wrapS = woodTexture.wrapT = THREE.RepeatWrapping;
+        
+        const colors = {
+            boardBase: 0xffffff,
+            snake: 0x5cb85c,
+            treeTrunk: 0x8b4513,
+            treeLeaves: 0x228b22,
+            rainbow: [0xff0000, 0xffa500, 0xffff00, 0x008000, 0x0000ff, 0x4b0082, 0xee82ee]
+        };
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xfadadd);
+            scene.fog = new THREE.Fog(0xfadadd, 50, 150);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+            camera.position.set(0, 35, 35);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(20, 30, 10);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.camera.top = 30;
+            directionalLight.shadow.camera.bottom = -30;
+            directionalLight.shadow.camera.left = -30;
+            directionalLight.shadow.camera.right = 30;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.radius = 5;
+            scene.add(directionalLight);
+            
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            // Initialize Layer Groups
+            boardGroup = new THREE.Group();
+            gamePiecesGroup = new THREE.Group();
+            laddersGroup = new THREE.Group();
+            snakesGroup = new THREE.Group();
+            numbersGroup = new THREE.Group();
+            treesGroup = new THREE.Group();
+            rainbowsGroup = new THREE.Group();
+            gridGroup = new THREE.Group();
+            sceneryGroup = new THREE.Group();
+            pawnsGroup = new THREE.Group();
+            diceGroup = new THREE.Group();
+            cloudsGroup = new THREE.Group();
+            ikeaStoreGroup = new THREE.Group();
+            kioskGroup = new THREE.Group();
+            stoolGroup = new THREE.Group();
+            
+            // Set default positions
+            gridGroup.position.set(0, 1.4, 0);
+            numbersGroup.position.set(0, 1.2, 0);
+            gamePiecesGroup.position.set(0, 1, 0);
+            treesGroup.position.set(0, 0, 0);
+            rainbowsGroup.position.set(0, 8, -12);
+            pawnsGroup.position.set(0, 1.0, 0); 
+            diceGroup.position.set(-15, 1, 15);
+            cloudsGroup.position.set(0, 20, 0);
+            kioskGroup.position.set(15, 0, -15);
+            stoolGroup.position.set(13, 0, 13);
+            ikeaStoreGroup.position.set(-18, 0, 0);
+
+            gamePiecesGroup.add(laddersGroup, snakesGroup);
+            sceneryGroup.add(treesGroup, rainbowsGroup, pawnsGroup, diceGroup, cloudsGroup, ikeaStoreGroup, kioskGroup, stoolGroup);
+            scene.add(boardGroup, gamePiecesGroup, sceneryGroup, gridGroup, numbersGroup);
+
+            // Create geometry
+            createBoard();
+            setupAxesGizmo();
+            
+            // Event Listeners
+            setupUIListeners();
+            window.addEventListener('resize', onWindowResize, false);
+
+            animate();
+        }
+
+        function createBoard() {
+            // Ground Plane
+            const groundGeo = new THREE.CircleGeometry(40, 64);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0xfff0e6 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -1.1;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            const w = 22, h = 22, r = 1.5;
+            const roundedRectShape = new THREE.Shape();
+            roundedRectShape.moveTo(-w/2 + r, -h/2);
+            roundedRectShape.lineTo(w/2 - r, -h/2);
+            roundedRectShape.absarc(w/2 - r, -h/2 + r, r, -Math.PI/2, 0, false);
+            roundedRectShape.lineTo(w/2, h/2 - r);
+            roundedRectShape.absarc(w/2 - r, h/2 - r, r, 0, Math.PI/2, false);
+            roundedRectShape.lineTo(-w/2 + r, h/2);
+            roundedRectShape.absarc(-w/2 + r, h/2 - r, r, Math.PI/2, Math.PI, false);
+            roundedRectShape.lineTo(-w/2, -h/2 + r);
+            roundedRectShape.absarc(-w/2 + r, -h/2 + r, r, Math.PI, Math.PI * 1.5, false);
+            const extrudeSettings = {
+                depth: 2, bevelEnabled: true, bevelSegments: 8, steps: 1, bevelSize: 0.5, bevelThickness: 0.5
+            };
+            const baseGeometry = new THREE.ExtrudeGeometry(roundedRectShape, extrudeSettings);
+            const baseMaterial = new THREE.MeshStandardMaterial({ color: colors.boardBase, roughness: 0.8 });
+            const boardBase = new THREE.Mesh(baseGeometry, baseMaterial);
+            boardBase.rotation.x = -Math.PI / 2;
+            boardBase.position.y = -1;
+            boardBase.castShadow = true;
+            boardBase.receiveShadow = true;
+            boardGroup.add(boardBase);
+
+            const cellSize = 2;
+            const boardSize = 10;
+            const offset = - (boardSize * cellSize) / 2 + cellSize / 2;
+            
+            const cellColors = [
+                new THREE.Color(0x008080), // Teal
+                new THREE.Color(0xFFD700), // Yellow
+                new THREE.Color(0xFFA500), // Orange
+                new THREE.Color(0xDC143C), // Red
+                new THREE.Color(0x4682B4)  // Blue
+            ];
+
+            const fontLoader = new THREE.FontLoader();
+            fontLoader.load('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+                mainFont = font;
+                const physicalCells = [];
+                for (let i = 0; i < boardSize * boardSize; i++) {
+                    const physicalRow = Math.floor(i / boardSize);
+                    const physicalCol = i % boardSize;
+                    const x = offset + physicalCol * cellSize;
+                    const z = offset + physicalRow * cellSize;
+                    
+                    const cellGeometry = new THREE.BoxGeometry(cellSize * 0.95, 0.2, cellSize * 0.95);
+                    const colorIndex = i % cellColors.length;
+                    const cellMaterial = new THREE.MeshStandardMaterial({ color: cellColors[colorIndex], roughness: 0.7 });
+
+                    const cell = new THREE.Mesh(cellGeometry, cellMaterial);
+                    cell.position.set(x, 0.1, z);
+                    cell.receiveShadow = true;
+                    gridGroup.add(cell);
+                    physicalCells.push(cell);
+                }
+
+                for (let i = 0; i < physicalCells.length; i++) {
+                    const physicalCell = physicalCells[i];
+                    const physicalRow = Math.floor(i / boardSize);
+                    const physicalCol = i % boardSize;
+                    const logicalRow = boardSize - 1 - physicalRow;
+                    let num;
+                    if (logicalRow % 2 === 0) {
+                        num = (logicalRow * boardSize) + physicalCol + 1;
+                    } else {
+                        num = (logicalRow * boardSize) + (boardSize - 1 - physicalCol) + 1;
+                    }
+                    cells[num - 1] = physicalCell;
+
+                    const textMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+                    const textGeometry = new THREE.TextGeometry(num.toString(), { font: font, size: 0.5, height: 0.1 });
+                    textGeometry.center();
+                    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+                    textMesh.position.copy(physicalCell.position);
+                    textMesh.position.y = 0.5;
+                    textMesh.rotation.x = -Math.PI / 2;
+                    textMesh.castShadow = true;
+                    numbersGroup.add(textMesh);
+                }
+                
+                createGrid(boardSize, cellSize);
+                createSnakesAndLadders();
+                createScenery();
+                updateGameUI();
+            });
+        }
+        
+        function createGrid(boardSize, cellSize) {
+            const size = boardSize * cellSize;
+            const divisions = boardSize;
+            const gridHelper = new THREE.GridHelper(size, divisions, 0x333333, 0x333333);
+            gridHelper.position.y = 0.21;
+            gridGroup.add(gridHelper);
+        }
+
+        function getCellPosition(number) {
+            if (number < 1) return new THREE.Vector3(-12, 1, 12); // Off-board position
+            const cell = cells[number - 1];
+            return cell ? gridGroup.localToWorld(cell.position.clone()) : new THREE.Vector3();
+        }
+
+        function createSnakesAndLadders() {
+            const ladders = [ {start: 4, end: 25}, {start: 13, end: 46}, {start: 33, end: 49}, {start: 42, end: 63}, {start: 50, end: 69}, {start: 62, end: 81}, {start: 74, end: 92} ];
+            const snakes = [ 
+                {start: 27, end: 5, cp1: new THREE.Vector3(-2, 0, -2), cp2: new THREE.Vector3(2, 0, 2)}, 
+                {start: 40, end: 3, cp1: new THREE.Vector3(2, 0, -2), cp2: new THREE.Vector3(-2, 0, 2)}, 
+                {start: 43, end: 18, cp1: new THREE.Vector3(2, 0, 2), cp2: new THREE.Vector3(-2, 0, -2)}, 
+                {start: 54, end: 31, cp1: new THREE.Vector3(-2, 0, 2), cp2: new THREE.Vector3(2, 0, -2)}, 
+                {start: 66, end: 45, cp1: new THREE.Vector3(2, 0, -2), cp2: new THREE.Vector3(-2, 0, 2)}, 
+                {start: 76, end: 58, cp1: new THREE.Vector3(2.5, 0, 0), cp2: new THREE.Vector3(2.5, 0, 0)}, 
+                {start: 89, end: 53, cp1: new THREE.Vector3(-2, 0, -2), cp2: new THREE.Vector3(2, 0, 2)}, 
+                {start: 99, end: 41, cp1: new THREE.Vector3(2, 0, 2), cp2: new THREE.Vector3(-2, 0, -2)} 
+            ];
+            ladders.forEach(l => createLadder(l.start, l.end));
+            snakes.forEach(s => createSnake(s.start, s.end, s.cp1, s.cp2));
+        }
+
+        function createLadder(startNum, endNum) {
+            const startPos = getCellPosition(startNum);
+            const endPos = getCellPosition(endNum);
+
+            const localStart = gamePiecesGroup.worldToLocal(startPos.clone());
+            const localEnd = gamePiecesGroup.worldToLocal(endPos.clone());
+            const ladderY = 0.7; // Adjusted Y position
+            localStart.y = ladderY;
+            localEnd.y = ladderY;
+
+            const distance = localStart.distanceTo(localEnd);
+            const rungs = Math.floor(distance * 1.5);
+            const ladderGroup = new THREE.Group();
+            ladderGroup.castShadow = true;
+            const railGeo = new THREE.CylinderGeometry(0.1, 0.1, distance, 8);
+            const railMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const leftRail = new THREE.Mesh(railGeo, railMat);
+            leftRail.position.x = -0.5;
+            leftRail.castShadow = true;
+            const rightRail = new THREE.Mesh(railGeo, railMat);
+            rightRail.position.x = 0.5;
+            rightRail.castShadow = true;
+            const rungGeo = new THREE.CylinderGeometry(0.08, 0.08, 1, 8);
+            
+            for (let i = 1; i < rungs; i++) {
+                const rung = new THREE.Mesh(rungGeo, railMat);
+                rung.rotation.z = Math.PI / 2;
+                rung.position.y = -distance / 2 + (i / rungs) * distance;
+                rung.castShadow = true;
+                ladderGroup.add(rung);
+            }
+
+            ladderGroup.add(leftRail, rightRail);
+            ladderGroup.position.copy(localStart).lerp(localEnd, 0.5);
+            ladderGroup.lookAt(localEnd);
+            ladderGroup.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2));
+            laddersGroup.add(ladderGroup);
+        }
+
+        function createSnake(startNum, endNum, cp1Offset, cp2Offset) {
+            const snakeGroup = new THREE.Group();
+            snakeGroup.castShadow = true;
+            const startPos = getCellPosition(startNum);
+            const endPos = getCellPosition(endNum);
+            
+            const localStart = gamePiecesGroup.worldToLocal(startPos.clone());
+            const localEnd = gamePiecesGroup.worldToLocal(endPos.clone());
+            
+            const snakeY = 0.7; // Adjusted Y position
+            localStart.y = snakeY;
+            localEnd.y = snakeY;
+            
+            const midPoint1 = new THREE.Vector3().lerpVectors(localStart, localEnd, 0.3).add(cp1Offset);
+            const midPoint2 = new THREE.Vector3().lerpVectors(localStart, localEnd, 0.7).add(cp2Offset);
+            midPoint1.y = snakeY; midPoint2.y = snakeY;
+
+            const curve = new THREE.CatmullRomCurve3([localStart, midPoint1, midPoint2, localEnd]);
+            
+            const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.15, 8, false);
+            const tubeMat = new THREE.MeshStandardMaterial({ color: colors.snake, roughness: 0.3 });
+            const snakeBody = new THREE.Mesh(tubeGeo, tubeMat);
+            snakeBody.castShadow = true;
+            snakeGroup.add(snakeBody);
+
+            const eyeGeo = new THREE.SphereGeometry(0.05, 8, 8);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+            const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+            
+            const tongueGeo = new THREE.BoxGeometry(0.02, 0.01, 0.2);
+            const tongueMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const tongue = new THREE.Mesh(tongueGeo, tongueMat);
+            tongue.position.set(0, -0.05, 0.15);
+            tonguesToAnimate.push(tongue);
+
+            const headGroup = new THREE.Group();
+            headGroup.add(eyeL, eyeR, tongue);
+            
+            const headPos = curve.getPointAt(0);
+            const headTangent = curve.getTangentAt(0);
+            const up = new THREE.Vector3(0, 1, 0);
+            const side = new THREE.Vector3().crossVectors(up, headTangent).normalize();
+            
+            eyeL.position.copy(side).multiplyScalar(0.1);
+            eyeR.position.copy(side).multiplyScalar(-0.1);
+
+            headGroup.position.copy(headPos);
+            headGroup.lookAt(headPos.clone().add(headTangent));
+            snakeGroup.add(headGroup);
+
+            snakesGroup.add(snakeGroup);
+        }
+
+        function createScenery() {
+            createPawns();
+            createTrees();
+            createRainbows();
+            createClouds();
+            const die = createDie();
+            diceGroup.add(die);
+            
+            const ikeaStore = createIkeaStore();
+            ikeaStoreGroup.add(ikeaStore);
+
+            const kiosk = createKiosk();
+            kioskGroup.add(kiosk);
+
+            const stool = createStool();
+            stoolGroup.add(stool);
+        }
+
+        function createPawns() {
+            const pawnColors = [playerColors[0].hex, playerColors[1].hex];
+            pawnColors.forEach((c, i) => {
+                const pawn = createPawn(c.substring(1)); // Creates the 3D model
+                const worldStartPos = getCellPosition(playerPositions[i]);
+                const localStartPos = pawnsGroup.worldToLocal(worldStartPos.clone());
+                localStartPos.y = 0; // Relative to the group's y
+                // Offset pawns slightly so they don't overlap
+                localStartPos.x += (i === 0) ? -0.25 : 0.25;
+                localStartPos.z += (i === 0) ? -0.25 : 0.25;
+                pawn.position.copy(localStartPos); // Applies the starting position
+                pawnsGroup.add(pawn);
+            });
+        }
+        
+        function createPawn(color) {
+            const pawn = new THREE.Group();
+            const scale = 1.5; // 50% larger
+            const baseGeo = new THREE.CylinderGeometry(0.4 * scale, 0.6 * scale, 0.3 * scale, 32);
+            const baseMat = new THREE.MeshStandardMaterial({ color: parseInt("0x" + color) });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            const headGeo = new THREE.SphereGeometry(0.3 * scale, 32, 32);
+            const head = new THREE.Mesh(headGeo, baseMat);
+            head.position.y = 0.5 * scale;
+            const bodyGeo = new THREE.CylinderGeometry(0.2 * scale, 0.4 * scale, 0.4 * scale, 32);
+            const body = new THREE.Mesh(bodyGeo, baseMat);
+            body.position.y = 0.35 * scale;
+            pawn.add(base, head, body);
+            pawn.castShadow = true;
+            pawn.traverse(child => { if (child.isMesh) child.castShadow = true; });
+            return pawn;
+        }
+
+        function createTrees() {
+            const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 1.5, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: colors.treeTrunk });
+            const leavesGeo = new THREE.SphereGeometry(1, 8, 8);
+            const leavesMat = new THREE.MeshStandardMaterial({ color: colors.treeLeaves });
+
+            const exclusionZones = [
+                { center: new THREE.Vector3(0, 0, 0), radius: 16 }, // Board area
+                { center: ikeaStoreGroup.position, radius: 8 },
+                { center: diceGroup.position, radius: 8 },
+                { center: pawnsGroup.position, radius: 8 },
+                { center: kioskGroup.position, radius: 5 },
+                { center: stoolGroup.position, radius: 5 }
+            ];
+
+            const groundRadius = 40;
+            const spacing = 4;
+
+            for (let x = -groundRadius; x < groundRadius; x += spacing) {
+                for (let z = -groundRadius; z < groundRadius; z += spacing) {
+                    const position = new THREE.Vector3(x + (Math.random() - 0.5) * 2, 0, z + (Math.random() - 0.5) * 2);
+
+                    if (position.length() > groundRadius) continue;
+
+                    let excluded = false;
+                    for (const zone of exclusionZones) {
+                        if (position.distanceTo(zone.center) < zone.radius) {
+                            excluded = true;
+                            break;
+                        }
+                    }
+                    if (excluded) continue;
+
+                    const tree = new THREE.Group();
+                    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                    trunk.position.y = 0.75;
+                    const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+                    leaves.position.y = 2;
+                    tree.add(trunk, leaves);
+                    tree.position.copy(position);
+                    tree.castShadow = true;
+                    tree.traverse(child => { if (child.isMesh) child.castShadow = true; });
+                    treesGroup.add(tree);
+                }
+            }
+        }
+        
+        function createRainbows() {
+            const radius = 15;
+            for (let i = 0; i < colors.rainbow.length; i++) {
+                const color = colors.rainbow[i];
+                const tubeRadius = 0.3 - (i * 0.03);
+                const torusGeo = new THREE.TorusGeometry(radius - i * 0.3, tubeRadius, 8, 50, Math.PI);
+                const torusMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5, metalness: 0.1 });
+                const torus = new THREE.Mesh(torusGeo, torusMat);
+                torus.castShadow = true;
+                rainbowsGroup.add(torus);
+            }
+        }
+
+        function createClouds() {
+            const cloudGeo = new THREE.SphereGeometry(1, 8, 8);
+            const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+            for (let i = 0; i < 10; i++) {
+                const cloudGroup = new THREE.Group();
+                for (let j = 0; j < 5; j++) {
+                    const cloudSphere = new THREE.Mesh(cloudGeo, cloudMat);
+                    cloudSphere.position.set(
+                        (Math.random() - 0.5) * 3,
+                        (Math.random() - 0.5) * 1,
+                        (Math.random() - 0.5) * 2
+                    );
+                    cloudSphere.scale.setScalar(Math.random() * 0.5 + 0.5);
+                    cloudGroup.add(cloudSphere);
+                }
+                cloudGroup.position.set(
+                    (Math.random() - 0.5) * 80,
+                    (Math.random() * 5),
+                    (Math.random() - 0.5) * 80
+                );
+                cloudsGroup.add(cloudGroup);
+            }
+        }
+
+        function createDie() {
+             const size = 1.5;
+                const dieGeo = new THREE.BoxGeometry(size, size, size);
+                const dotPositions = {
+                        1: [[0, 0]], 2: [[-0.5, 0.5], [0.5, -0.5]], 3: [[-0.5, 0.5], [0, 0], [0.5, -0.5]],
+                        4: [[-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5], [0.5, -0.5]],
+                        5: [[-0.5, 0.5], [0.5, 0.5], [0, 0], [-0.5, -0.5], [0.5, -0.5]],
+                        6: [[-0.5, 0.5], [0.5, 0.5], [-0.5, 0], [0.5, 0], [-0.5, -0.5], [0.5, -0.5]]
+               };
+
+                const materials = [];
+                // Material order: [right, left, top, bottom, front, back] -> THREE.js standard
+                // We map our numbers to faces: 1-right, 2-left, 3-top, 4-bottom, 5-front, 6-back
+                const faceNumbers = [1, 2, 3, 4, 5, 6];
+                faceNumbers.forEach(i => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 64; canvas.height = 64;
+                    const context = canvas.getContext('2d');
+                    context.fillStyle = 'red';
+                    context.fillRect(0, 0, 64, 64);
+                    context.fillStyle = 'white';
+                    dotPositions[i].forEach(pos => {
+                        context.beginPath();
+                        context.arc(32 + pos[0]*15, 32 + pos[1]*15, 5, 0, Math.PI * 2);
+                        context.fill();
+                    });
+                    const texture = new THREE.CanvasTexture(canvas);
+                    materials.push(new THREE.MeshStandardMaterial({ map: texture }));
+                });
+
+                const die = new THREE.Mesh(dieGeo, materials);
+                die.castShadow = true;
+                return die;
+        }
+        
+        function createIkeaStore() {
+            const store = new THREE.Group();
+            store.castShadow = true;
+
+            const blueMat = new THREE.MeshStandardMaterial({ color: 0x0051ba });
+            const yellowMat = new THREE.MeshStandardMaterial({ color: 0xffda1a });
+            const woodDoorMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+
+            // Building
+            const buildingGeo = new THREE.BoxGeometry(6, 7, 6);
+            const building = new THREE.Mesh(buildingGeo, blueMat);
+            building.position.y = 3.5;
+            building.castShadow = true;
+            store.add(building);
+
+            // Awning
+            const awningGeo = new THREE.BoxGeometry(4, 0.5, 1.5);
+            const awning = new THREE.Mesh(awningGeo, yellowMat);
+            awning.position.set(0, 5.5, 3.25);
+            awning.castShadow = true;
+            store.add(awning);
+
+            // Doors
+            const doorGeo = new THREE.BoxGeometry(1.5, 3, 0.2);
+            const leftDoor = new THREE.Mesh(doorGeo, woodDoorMat);
+            leftDoor.position.set(-1, 1.5, 3.1);
+            leftDoor.castShadow = true;
+            store.add(leftDoor);
+            const rightDoor = new THREE.Mesh(doorGeo, woodDoorMat);
+            rightDoor.position.set(1, 1.5, 3.1);
+            rightDoor.castShadow = true;
+            store.add(rightDoor);
+
+            // IKEA Text
+            if (mainFont) { // Check if font is loaded before using it
+                const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffda1a });
+                const textGeometry = new THREE.TextGeometry('IKEA', {
+                    font: mainFont,
+                    size: 0.8,
+                    height: 0.2,
+                });
+                textGeometry.center();
+                const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+                textMesh.position.set(0, 6.5, 3.1);
+                store.add(textMesh);
+            }
+
+            store.scale.set(0.5, 0.5, 0.5);
+            return store;
+        }
+        
+        function createKiosk() {
+            const kiosk = new THREE.Group();
+            kiosk.traverse(child => { if (child.isMesh) child.castShadow = true; });
+
+            const baseGeo = new THREE.CylinderGeometry(2, 2, 0.5, 16);
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+            const base = new THREE.Mesh(baseGeo, baseMat);
+            base.position.y = 0.25;
+            kiosk.add(base);
+
+            const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 4, 8);
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            pole.position.y = 2.25;
+            kiosk.add(pole);
+
+            const roofGeo = new THREE.ConeGeometry(2.5, 1, 16);
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0xff6347 });
+            const roof = new THREE.Mesh(roofGeo, roofMat);
+            roof.position.y = 4.75;
+            kiosk.add(roof);
+            
+            return kiosk;
+        }
+
+        function createStool() {
+            const stool = new THREE.Group();
+            stool.traverse(child => { if (child.isMesh) child.castShadow = true; });
+
+            const seatGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.3, 16);
+            const seatMat = new THREE.MeshStandardMaterial({ map: woodTexture });
+            const seat = new THREE.Mesh(seatGeo, seatMat);
+            seat.position.y = 2;
+            stool.add(seat);
+
+            const legGeo = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
+            for (let i = 0; i < 4; i++) {
+                const leg = new THREE.Mesh(legGeo, seatMat);
+                const angle = (i / 4) * Math.PI * 2;
+                leg.position.set(Math.cos(angle) * 1.2, 1, Math.sin(angle) * 1.2);
+                stool.add(leg);
+            }
+            return stool;
+        }
+
+        function setupAxesGizmo() {
+            scene2 = new THREE.Scene();
+            axesGroup = new THREE.Group();
+            axesGroup.visible = false;
+            const axisLength = 3;
+            const axes = new THREE.AxesHelper(axisLength);
+            axesGroup.add(axes);
+            const xLabel = makeTextSprite("X", { fontsize: 24, textColor: { r:255, g:0, b:0, a:1.0 } });
+            xLabel.position.x = axisLength + 0.5;
+            axesGroup.add(xLabel);
+            const yLabel = makeTextSprite("Y", { fontsize: 24, textColor: { r:0, g:255, b:0, a:1.0 } });
+            yLabel.position.y = axisLength + 0.5;
+            axesGroup.add(yLabel);
+            const zLabel = makeTextSprite("Z", { fontsize: 24, textColor: { r:0, g:0, b:255, a:1.0 } });
+            zLabel.position.z = axisLength + 0.5;
+            axesGroup.add(zLabel);
+            scene2.add(axesGroup);
+            camera2 = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 1000);
+            camera2.up = camera.up;
+        }
+        
+        function makeTextSprite(message, opts) {
+            const parameters = opts || {};
+            const fontface = parameters.fontface || 'Arial';
+            const fontsize = parameters.fontsize || 18;
+            const textColor = parameters.textColor || { r: 0, g: 0, b: 0, a: 1.0 };
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            context.font = `Bold ${fontsize}px ${fontface}`;
+            const metrics = context.measureText(message);
+            context.fillStyle = `rgba(${textColor.r}, ${textColor.g}, ${textColor.b}, ${textColor.a})`;
+            context.fillText(message, 0, fontsize);
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(0.5 * fontsize, 0.25 * fontsize, 0.75 * fontsize);
+            return sprite;
+        }
+
+        function setupUIListeners() {
+            document.getElementById('start-btn').addEventListener('click', startGame);
+
+            document.getElementById('panel-toggle').addEventListener('change', (e) => {
+                document.getElementById('layer-panel').style.display = e.target.checked ? 'block' : 'none';
+            });
+
+            document.getElementById('board-toggle').addEventListener('change', (e) => { boardGroup.visible = e.target.checked; });
+            document.getElementById('grid-toggle').addEventListener('change', (e) => { gridGroup.visible = e.target.checked; });
+            document.getElementById('numbers-toggle').addEventListener('change', (e) => { numbersGroup.visible = e.target.checked; });
+            const gamePiecesToggle = document.getElementById('game-pieces-toggle');
+            const subLayerIds = ['ladders-layer', 'snakes-layer'];
+            gamePiecesToggle.addEventListener('change', (e) => {
+                const isVisible = e.target.checked;
+                gamePiecesGroup.visible = isVisible;
+                subLayerIds.forEach(id => { document.getElementById(id).style.display = isVisible ? 'flex' : 'none'; });
+            });
+            document.getElementById('ladders-toggle').addEventListener('change', (e) => { laddersGroup.visible = e.target.checked; });
+            document.getElementById('snakes-toggle').addEventListener('change', (e) => { snakesGroup.visible = e.target.checked; });
+            document.getElementById('scenery-toggle').addEventListener('change', (e) => { sceneryGroup.visible = e.target.checked; });
+            document.getElementById('trees-toggle').addEventListener('change', (e) => { treesGroup.visible = e.target.checked; });
+            document.getElementById('rainbows-toggle').addEventListener('change', (e) => { rainbowsGroup.visible = e.target.checked; });
+            document.getElementById('pawns-toggle').addEventListener('change', (e) => { pawnsGroup.visible = e.target.checked; });
+            document.getElementById('dice-toggle').addEventListener('change', (e) => { diceGroup.visible = e.target.checked; });
+            document.getElementById('clouds-toggle').addEventListener('change', (e) => { cloudsGroup.visible = e.target.checked; });
+            document.getElementById('ikea-store-toggle').addEventListener('change', (e) => { ikeaStoreGroup.visible = e.target.checked; });
+            document.getElementById('kiosk-toggle').addEventListener('change', (e) => { kioskGroup.visible = e.target.checked; });
+            document.getElementById('stool-toggle').addEventListener('change', (e) => { stoolGroup.visible = e.target.checked; });
+            document.getElementById('axes-toggle').addEventListener('change', (e) => { axesGroup.visible = e.target.checked; });
+            
+            linkPositionInputs(boardGroup, 'board-pos-x', 'board-pos-y', 'board-pos-z');
+            linkPositionInputs(gridGroup, 'grid-pos-x', 'grid-pos-y', 'grid-pos-z');
+            linkPositionInputs(numbersGroup, 'numbers-pos-x', 'numbers-pos-y', 'numbers-pos-z');
+            linkPositionInputs(gamePiecesGroup, 'game-pieces-pos-x', 'game-pieces-pos-y', 'game-pieces-pos-z', true);
+            linkPositionInputs(treesGroup, 'trees-pos-x', 'trees-pos-y', 'trees-pos-z');
+            linkPositionInputs(rainbowsGroup, 'rainbows-pos-x', 'rainbows-pos-y', 'rainbows-pos-z');
+            linkPositionInputs(pawnsGroup, 'pawns-pos-x', 'pawns-pos-y', 'pawns-pos-z');
+            linkPositionInputs(diceGroup, 'dice-pos-x', 'dice-pos-y', 'dice-pos-z');
+            linkPositionInputs(cloudsGroup, 'clouds-pos-x', 'clouds-pos-y', 'clouds-pos-z');
+            linkPositionInputs(ikeaStoreGroup, 'ikea-store-pos-x', 'ikea-store-pos-y', 'ikea-store-pos-z');
+            linkPositionInputs(kioskGroup, 'kiosk-pos-x', 'kiosk-pos-y', 'kiosk-pos-z');
+            linkPositionInputs(stoolGroup, 'stool-pos-x', 'stool-pos-y', 'stool-pos-z');
+
+            document.getElementById('apply-changes').addEventListener('click', applyAllPositions);
+            document.getElementById('roll-dice-btn').addEventListener('click', rollDice);
+            document.getElementById('agree-btn').addEventListener('click', () => handleQuizAnswer(true));
+            document.getElementById('disagree-btn').addEventListener('click', () => handleQuizAnswer(false));
+            
+            document.getElementById('close-info-panel').addEventListener('click', closeInfoPanel);
+            document.getElementById('open-info-panel-btn').addEventListener('click', openInfoPanel);
+            
+            document.getElementById('player-info-accordion').addEventListener('click', () => {
+                document.getElementById('player-info-content').classList.toggle('collapsed');
+            });
+            
+            updateGameUI();
+        }
+        
+        function linkPositionInputs(group, xId, yId, zId, lockY = false) {
+            const xInput = document.getElementById(xId);
+            const yInput = document.getElementById(yId);
+            const zInput = document.getElementById(zId);
+
+            xInput.value = group.position.x.toFixed(1);
+            yInput.value = group.position.y.toFixed(1);
+            zInput.value = group.position.z.toFixed(1);
+            
+            if (lockY) {
+                yInput.disabled = true;
+            }
+        }
+
+        function applyPositionFromInputs(group, xId, yId, zId, lockY = false) {
+            const x = parseFloat(document.getElementById(xId).value) || 0;
+            const z = parseFloat(document.getElementById(zId).value) || 0;
+            if (lockY) {
+                group.position.set(x, group.position.y, z);
+            } else {
+                const y = parseFloat(document.getElementById(yId).value) || 0;
+                group.position.set(x, y, z);
+            }
+        }
+
+        function applyAllPositions() {
+            applyPositionFromInputs(boardGroup, 'board-pos-x', 'board-pos-y', 'board-pos-z');
+            applyPositionFromInputs(gridGroup, 'grid-pos-x', 'grid-pos-y', 'grid-pos-z');
+            applyPositionFromInputs(numbersGroup, 'numbers-pos-x', 'numbers-pos-y', 'numbers-pos-z');
+            applyPositionFromInputs(gamePiecesGroup, 'game-pieces-pos-x', 'game-pieces-pos-y', 'game-pieces-pos-z', true);
+            applyPositionFromInputs(treesGroup, 'trees-pos-x', 'trees-pos-y', 'trees-pos-z');
+            applyPositionFromInputs(rainbowsGroup, 'rainbows-pos-x', 'rainbows-pos-y', 'rainbows-pos-z');
+            applyPositionFromInputs(pawnsGroup, 'pawns-pos-x', 'pawns-pos-y', 'pawns-pos-z');
+            applyPositionFromInputs(diceGroup, 'dice-pos-x', 'dice-pos-y', 'dice-pos-z');
+            applyPositionFromInputs(cloudsGroup, 'clouds-pos-x', 'clouds-pos-y', 'clouds-pos-z');
+            applyPositionFromInputs(ikeaStoreGroup, 'ikea-store-pos-x', 'ikea-store-pos-y', 'ikea-store-pos-z');
+            applyPositionFromInputs(kioskGroup, 'kiosk-pos-x', 'kiosk-pos-y', 'kiosk-pos-z');
+            applyPositionFromInputs(stoolGroup, 'stool-pos-x', 'stool-pos-y', 'stool-pos-z');
+        }
+
+        function startGame() {
+            document.getElementById('start-modal-overlay').style.display = 'none'; // Directly hide the modal
+            const gameUIElements = document.querySelectorAll('.game-ui');
+            gameUIElements.forEach(el => el.style.visibility = 'visible');
+            openInfoPanel();
+        }
+
+        function openInfoPanel() {
+            document.getElementById('game-info-panel').classList.add('open');
+            document.getElementById('open-info-panel-btn').classList.add('hidden');
+        }
+
+        function closeInfoPanel() {
+            document.getElementById('game-info-panel').classList.remove('open');
+            document.getElementById('open-info-panel-btn').classList.remove('hidden');
+        }
+
+        function rollDice() {
+            if (gamePhase !== 'waiting_for_roll') return;
+            gamePhase = 'waiting_for_quiz'; 
+            
+            const randomIndex = Math.floor(Math.random() * quizQuestions.length);
+            currentQuestion = quizQuestions[randomIndex];
+            document.getElementById('designer-name').textContent = currentQuestion.source;
+            document.getElementById('question-text').textContent = currentQuestion.statement;
+            
+            openInfoPanel();
+
+            const player = playerColors[currentPlayerIndex];
+            document.getElementById('question-card').style.backgroundColor = player.hex;
+            document.getElementById('question-card').classList.remove('hidden');
+            
+            document.getElementById('roll-dice-btn').disabled = true;
+            document.getElementById('close-info-panel').disabled = true;
+        }
+
+        function handleQuizAnswer(answer) {
+            playerScores[currentPlayerIndex].attempted++;
+            if (answer === currentQuestion.answer) {
+                playerScores[currentPlayerIndex].correct++;
+            }
+            updateScorecard();
+            
+            document.getElementById('question-card').classList.add('hidden');
+            document.getElementById('close-info-panel').disabled = false;
+            
+            const roll = getBiasedRoll();
+            const player = playerColors[currentPlayerIndex];
+            document.getElementById('game-info').textContent = `${player.name} rolled a ${roll}!`;
+
+            animateDice(roll, () => {
+                movePawn(roll);
+            });
+        }
+
+        function getBiasedRoll() {
+            const score = playerScores[currentPlayerIndex];
+            const successRate = score.attempted > 0 ? score.correct / score.attempted : 0.5;
+
+            const possibleRolls = [1, 2, 3, 4, 5, 6];
+            const weightedRolls = [...possibleRolls];
+
+            const currentPos = playerPositions[currentPlayerIndex];
+            
+            for (const roll of possibleRolls) {
+                const nextPos = currentPos + roll;
+                if (specialMoves[nextPos]) {
+                    const isLadder = specialMoves[nextPos] > nextPos;
+                    if (isLadder && successRate > 0.6) {
+                        weightedRolls.push(roll, roll); // Add twice for higher chance
+                    } else if (!isLadder && successRate < 0.4) {
+                        weightedRolls.push(roll, roll); // Add twice for higher chance
+                    }
+                }
+            }
+
+            const randomIndex = Math.floor(Math.random() * weightedRolls.length);
+            return weightedRolls[randomIndex];
+        }
+
+        function animateDice(roll, onComplete) {
+            const die = diceGroup.children[0];
+            const startQuaternion = die.quaternion.clone();
+            const dummy = { y: 1, rotX: 0, rotZ: 0 };
+            
+            new TWEEN.Tween(dummy)
+                .to({ y: 5, rotX: Math.random() * Math.PI * 4, rotZ: Math.random() * Math.PI * 4 }, 1000)
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .onUpdate(() => {
+                    die.position.y = dummy.y;
+                    die.rotation.x = dummy.rotX;
+                    die.rotation.z = dummy.rotZ;
+                })
+                .onComplete(() => {
+                    const targetEuler = dieFaceRotations[roll];
+                    const targetQuaternion = new THREE.Quaternion().setFromEuler(targetEuler);
+
+                    new TWEEN.Tween(die.quaternion)
+                        .to(targetQuaternion, 400)
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .start();
+                    
+                    new TWEEN.Tween(die.position)
+                        .to({ y: 1 }, 300)
+                        .easing(TWEEN.Easing.Bounce.Out)
+                        .onComplete(onComplete)
+                        .start();
+                })
+                .start();
+        }
+
+        function movePawn(steps) {
+            const pawn = pawnsGroup.children[currentPlayerIndex];
+            const startCell = playerPositions[currentPlayerIndex];
+            const endCell = startCell + steps;
+            
+            if (endCell > 100) {
+                const player = playerColors[currentPlayerIndex];
+                document.getElementById('game-info').textContent = `${player.name} overshot! Try again.`;
+                setTimeout(() => endTurn(true), 1000); // Pass a flag to indicate no player switch
+                return;
+            }
+
+            let sequence = null;
+            let lastTweenInChain = null;
+
+            for (let i = startCell + 1; i <= endCell; i++) {
+                const targetCell = i;
+                const worldTargetPos = getCellPosition(targetCell);
+                const localTargetPos = pawnsGroup.worldToLocal(worldTargetPos.clone());
+                
+                localTargetPos.y = 0; // Keep pawn on the group's plane
+                localTargetPos.x += (currentPlayerIndex === 0) ? -0.25 : 0.25;
+                localTargetPos.z += (currentPlayerIndex === 0) ? -0.25 : 0.25;
+
+                const stepTween = new TWEEN.Tween(pawn.position)
+                    .to(localTargetPos, 200)
+                    .easing(TWEEN.Easing.Linear.None);
+
+                if (lastTweenInChain) {
+                    lastTweenInChain.chain(stepTween);
+                } else {
+                    sequence = stepTween; 
+                }
+                lastTweenInChain = stepTween;
+            }
+
+            if (sequence) {
+                 lastTweenInChain.onComplete(() => {
+                    playerPositions[currentPlayerIndex] = endCell;
+                    handleSpecialMove();
+                });
+                sequence.start();
+            } else {
+                 handleSpecialMove();
+            }
+        }
+
+        function handleSpecialMove() {
+            const currentPos = playerPositions[currentPlayerIndex];
+            const pawn = pawnsGroup.children[currentPlayerIndex];
+
+            if (specialMoves[currentPos]) {
+                const destination = specialMoves[currentPos];
+                const isLadder = destination > currentPos;
+                
+                if (isLadder) {
+                    playerScores[currentPlayerIndex].ladders++;
+                } else {
+                    playerScores[currentPlayerIndex].snakes++;
+                }
+                updateScorecard();
+
+                const worldTargetPos = getCellPosition(destination);
+                const localTargetPos = pawnsGroup.worldToLocal(worldTargetPos.clone());
+                localTargetPos.y = 0;
+                localTargetPos.x += (currentPlayerIndex === 0) ? -0.25 : 0.25;
+                localTargetPos.z += (currentPlayerIndex === 0) ? -0.25 : 0.25;
+
+                new TWEEN.Tween(pawn.position)
+                    .to(localTargetPos, 800)
+                    .easing(TWEEN.Easing.Quadratic.InOut)
+                    .onComplete(() => {
+                        playerPositions[currentPlayerIndex] = destination;
+                        endTurn();
+                    })
+                    .start();
+            } else {
+                endTurn();
+            }
+        }
+
+        function endTurn(keepCurrentPlayer = false) {
+            updateGameUI(); 
+            if (playerPositions[currentPlayerIndex] >= 100) {
+                gamePhase = 'game_over';
+                const player = playerColors[currentPlayerIndex];
+                document.getElementById('game-info').textContent = `${player.name} Player Wins!`;
+                document.getElementById('roll-dice-btn').disabled = true;
+            } else if (!keepCurrentPlayer) {
+                currentPlayerIndex = (currentPlayerIndex + 1) % playerColors.length;
+                gamePhase = 'waiting_for_roll';
+                updateGameUI();
+            } else {
+                 gamePhase = 'waiting_for_roll';
+                 updateGameUI();
+            }
+        }
+
+        function updateGameUI() {
+            const player = playerColors[currentPlayerIndex];
+            document.getElementById('game-info').textContent = `${player.name} Player's Turn`;
+            document.getElementById('roll-dice-btn').style.backgroundColor = player.hex;
+            document.getElementById('player-purple-pos').textContent = `Position ${playerPositions[0]}`;
+            document.getElementById('player-blue-pos').textContent = `Position ${playerPositions[1]}`;
+            document.getElementById('roll-dice-btn').disabled = (gamePhase !== 'waiting_for_roll');
+        }
+
+        function updateScorecard() {
+            // Player Purple
+            const purpleScore = playerScores[0];
+            const purpleTotal = (purpleScore.correct * 1) + (purpleScore.ladders * 5) - (purpleScore.snakes * 3);
+            document.getElementById('purple-total-points').textContent = purpleTotal;
+            document.getElementById('purple-correct-answers').textContent = `+${purpleScore.correct}`;
+            document.getElementById('purple-ladders').textContent = `+${purpleScore.ladders * 5}`;
+            document.getElementById('purple-snakes').textContent = `-${purpleScore.snakes * 3}`;
+
+            // Player Blue
+            const blueScore = playerScores[1];
+            const blueTotal = (blueScore.correct * 1) + (blueScore.ladders * 5) - (blueScore.snakes * 3);
+            document.getElementById('blue-total-points').textContent = blueTotal;
+            document.getElementById('blue-correct-answers').textContent = `+${blueScore.correct}`;
+            document.getElementById('blue-ladders').textContent = `+${blueScore.ladders * 5}`;
+            document.getElementById('blue-snakes').textContent = `-${blueScore.snakes * 3}`;
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+            controls.update();
+            TWEEN.update();
+            
+            tonguesToAnimate.forEach(tongue => {
+                const flick = Math.sin(elapsedTime * 5 + tongue.position.x) * 0.5 + 0.5;
+                tongue.scale.z = flick;
+            });
+
+            renderer.render(scene, camera);
+
+            if (axesGroup.visible) {
+                renderer.clearDepth(); 
+                const gizmoSize = 100;
+                // Render gizmo in bottom right corner
+                renderer.setViewport(window.innerWidth - gizmoSize - 20, 20, gizmoSize, gizmoSize);
+                camera2.position.copy(camera.position);
+                camera2.quaternion.copy(camera.quaternion);
+                camera2.position.sub(controls.target);
+                camera2.position.setLength(10);
+                camera2.lookAt(scene2.position);
+                renderer.render(scene2, camera2);
+                // Reset viewport to full screen for the main scene
+                renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
